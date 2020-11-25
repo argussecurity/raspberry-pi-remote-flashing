@@ -1,0 +1,5 @@
+mac address,ip address,reset gpio (wiring pi)
+b8:27:xx:xx:xx:xx,10.0.0.123,8
+b8:27:xx:xx:xx:xx,10.0.0.123,7
+b8:27:xx:xx:xx:xx,10.0.0.123,6
+b8:27:xx:xx:xx:xx,10.0.0.123,5

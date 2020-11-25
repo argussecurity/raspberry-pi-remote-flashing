@@ -1,0 +1,9 @@
+diff -Nur a/configs/rpi_3_32b_defconfig b/configs/rpi_3_32b_defconfig
+--- a/configs/rpi_3_32b_defconfig	2019-12-26 14:57:37.104714165 +0200
++++ b/configs/rpi_3_32b_defconfig	2019-12-26 14:59:34.572691822 +0200
+@@ -44,3 +44,4 @@
+ CONFIG_CONSOLE_SCROLL_LINES=10
+ CONFIG_PHYS_TO_BUS=y
+ CONFIG_OF_LIBFDT_OVERLAY=y
++CONFIG_CMD_TFTPPUT=y
+\ No newline at end of file

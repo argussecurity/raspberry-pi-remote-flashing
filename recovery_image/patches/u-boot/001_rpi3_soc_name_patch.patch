@@ -1,0 +1,1796 @@
+diff -Nur a/arch/arm/dts/bcm2710.dtsi b/arch/arm/dts/bcm2710.dtsi
+--- a/arch/arm/dts/bcm2710.dtsi	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/dts/bcm2710.dtsi	2019-11-07 15:17:43.527402599 +0200
+@@ -0,0 +1,93 @@
++#include "bcm283x.dtsi"
++
++/ {
++	compatible = "brcm,bcm2710";
++
++	soc {
++		ranges = <0x7e000000 0x3f000000 0x1000000>,
++			 <0x40000000 0x40000000 0x00001000>;
++		dma-ranges = <0xc0000000 0x00000000 0x3f000000>;
++
++		local_intc: local_intc@40000000 {
++			compatible = "brcm,bcm2836-l1-intc";
++			reg = <0x40000000 0x100>;
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			interrupt-parent = <&local_intc>;
++		};
++	};
++
++	arm-pmu {
++		compatible = "arm,cortex-a53-pmu";
++		interrupt-parent = <&local_intc>;
++		interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
++	};
++
++	timer {
++		compatible = "arm,armv7-timer";
++		interrupt-parent = <&local_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>, // PHYS_SECURE_PPI
++			     <1 IRQ_TYPE_LEVEL_HIGH>, // PHYS_NONSECURE_PPI
++			     <3 IRQ_TYPE_LEVEL_HIGH>, // VIRT_PPI
++			     <2 IRQ_TYPE_LEVEL_HIGH>; // HYP_PPI
++		always-on;
++	};
++
++	cpus: cpus {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		enable-method = "brcm,bcm2836-smp"; // for ARM 32-bit
++
++		cpu0: cpu@0 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a53";
++			reg = <0>;
++			enable-method = "spin-table";
++			cpu-release-addr = <0x0 0x000000d8>;
++		};
++
++		cpu1: cpu@1 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a53";
++			reg = <1>;
++			enable-method = "spin-table";
++			cpu-release-addr = <0x0 0x000000e0>;
++		};
++
++		cpu2: cpu@2 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a53";
++			reg = <2>;
++			enable-method = "spin-table";
++			cpu-release-addr = <0x0 0x000000e8>;
++		};
++
++		cpu3: cpu@3 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a53";
++			reg = <3>;
++			enable-method = "spin-table";
++			cpu-release-addr = <0x0 0x000000f0>;
++		};
++	};
++};
++
++/* Make the BCM2835-style global interrupt controller be a child of the
++ * CPU-local interrupt controller.
++ */
++&intc {
++	compatible = "brcm,bcm2836-armctrl-ic";
++	reg = <0x7e00b200 0x200>;
++	interrupt-parent = <&local_intc>;
++	interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
++};
++
++&cpu_thermal {
++	coefficients = <(-538)	412000>;
++};
++
++/* enable thermal sensor with the correct compatible property set */
++&thermal {
++	compatible = "brcm,bcm2710-thermal";
++	status = "okay";
++};
+diff -Nur a/arch/arm/dts/bcm2710-rpi-3-a-plus.dts b/arch/arm/dts/bcm2710-rpi-3-a-plus.dts
+--- a/arch/arm/dts/bcm2710-rpi-3-a-plus.dts	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/dts/bcm2710-rpi-3-a-plus.dts	2019-11-07 15:17:43.531402590 +0200
+@@ -0,0 +1,175 @@
++// SPDX-License-Identifier: GPL-2.0
++/dts-v1/;
++#include "bcm2710.dtsi"
++#include "bcm2836-rpi.dtsi"
++#include "bcm283x-rpi-usb-host.dtsi"
++
++/ {
++	compatible = "raspberrypi,3-model-a-plus", "brcm,bcm2710";
++	model = "Raspberry Pi 3 Model A+";
++
++	chosen {
++		/* 8250 auxiliary UART instead of pl011 */
++		stdout-path = "serial1:115200n8";
++	};
++
++	memory@0 {
++		reg = <0 0x20000000>;
++	};
++
++	leds {
++		act {
++			gpios = <&gpio 29 GPIO_ACTIVE_HIGH>;
++		};
++
++		pwr {
++			label = "PWR";
++			gpios = <&expgpio 2 GPIO_ACTIVE_LOW>;
++		};
++	};
++};
++
++&firmware {
++	expgpio: gpio {
++		compatible = "raspberrypi,firmware-gpio";
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-line-names = "",
++				  "BT_WL_ON",
++				  "STATUS_LED_R",
++				  "",
++				  "",
++				  "CAM_GPIO0",
++				  "CAM_GPIO1",
++				  "";
++		status = "okay";
++	};
++};
++
++&gpio {
++	/*
++	 * This is mostly based on the official GPU firmware DT blob.
++	 *
++	 * Legend:
++	 * "NC" = not connected (no rail from the SoC)
++	 * "FOO" = GPIO line named "FOO" on the schematic
++	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
++	 */
++	gpio-line-names = "ID_SDA",
++			  "ID_SCL",
++			  "SDA1",
++			  "SCL1",
++			  "GPIO_GCLK",
++			  "GPIO5",
++			  "GPIO6",
++			  "SPI_CE1_N",
++			  "SPI_CE0_N",
++			  "SPI_MISO",
++			  "SPI_MOSI",
++			  "SPI_SCLK",
++			  "GPIO12",
++			  "GPIO13",
++			  /* Serial port */
++			  "TXD1",
++			  "RXD1",
++			  "GPIO16",
++			  "GPIO17",
++			  "GPIO18",
++			  "GPIO19",
++			  "GPIO20",
++			  "GPIO21",
++			  "GPIO22",
++			  "GPIO23",
++			  "GPIO24",
++			  "GPIO25",
++			  "GPIO26",
++			  "GPIO27",
++			  "HDMI_HPD_N",
++			  "STATUS_LED_G",
++			  /* Used by BT module */
++			  "CTS0",
++			  "RTS0",
++			  "TXD0",
++			  "RXD0",
++			  /* Used by Wifi */
++			  "SD1_CLK",
++			  "SD1_CMD",
++			  "SD1_DATA0",
++			  "SD1_DATA1",
++			  "SD1_DATA2",
++			  "SD1_DATA3",
++			  "PWM0_OUT",
++			  "PWM1_OUT",
++			  "", /* GPIO42 */
++			  "WIFI_CLK",
++			  "SDA0",
++			  "SCL0",
++			  "SMPS_SCL",
++			  "SMPS_SDA",
++			  /* Used by SD Card */
++			  "SD_CLK_R",
++			  "SD_CMD_R",
++			  "SD_DATA0_R",
++			  "SD_DATA1_R",
++			  "SD_DATA2_R",
++			  "SD_DATA3_R";
++};
++
++&hdmi {
++	hpd-gpios = <&gpio 28 GPIO_ACTIVE_LOW>;
++};
++
++&pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
++	status = "okay";
++};
++
++/*
++ * SDHCI is used to control the SDIO for wireless
++ *
++ * WL_REG_ON and BT_REG_ON of the CYW43455 Wifi/BT module are driven
++ * by a single GPIO. We can't give GPIO control to one of the drivers,
++ * otherwise the other part would get unexpectedly disturbed.
++ */
++&sdhci {
++	#address-cells = <1>;
++	#size-cells = <0>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&emmc_gpio34>;
++	status = "okay";
++	bus-width = <4>;
++	non-removable;
++
++	brcmf: wifi@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++	};
++};
++
++/* SDHOST is used to drive the SD card */
++&sdhost {
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdhost_gpio48>;
++	status = "okay";
++	bus-width = <4>;
++};
++
++/* uart0 communicates with the BT module */
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ctsrts_gpio30 &uart0_gpio32 &gpclk2_gpio43>;
++	status = "okay";
++
++	bluetooth {
++		compatible = "brcm,bcm43438-bt";
++		max-speed = <2000000>;
++	};
++};
++
++/* uart1 is mapped to the pin header */
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_gpio14>;
++	status = "okay";
++};
+diff -Nur a/arch/arm/dts/bcm2710-rpi-3-b.dts b/arch/arm/dts/bcm2710-rpi-3-b.dts
+--- a/arch/arm/dts/bcm2710-rpi-3-b.dts	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/dts/bcm2710-rpi-3-b.dts	2019-11-07 15:17:43.531402590 +0200
+@@ -0,0 +1,173 @@
++// SPDX-License-Identifier: GPL-2.0
++/dts-v1/;
++#include "bcm2710.dtsi"
++#include "bcm2836-rpi.dtsi"
++#include "bcm283x-rpi-smsc9514.dtsi"
++#include "bcm283x-rpi-usb-host.dtsi"
++
++/ {
++	compatible = "raspberrypi,3-model-b", "brcm,bcm2710";
++	model = "Raspberry Pi 3 Model B";
++
++	chosen {
++		/* 8250 auxiliary UART instead of pl011 */
++		stdout-path = "serial1:115200n8";
++	};
++
++	memory@0 {
++		reg = <0 0x40000000>;
++	};
++
++	leds {
++		act {
++			gpios = <&expgpio 2 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	wifi_pwrseq: wifi-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
++	};
++};
++
++&firmware {
++	expgpio: gpio {
++		compatible = "raspberrypi,firmware-gpio";
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-line-names = "BT_ON",
++				  "WL_ON",
++				  "STATUS_LED",
++				  "LAN_RUN",
++				  "HDMI_HPD_N",
++				  "CAM_GPIO0",
++				  "CAM_GPIO1",
++				  "PWR_LOW_N";
++		status = "okay";
++	};
++};
++
++&gpio {
++	/*
++	 * Taken from rpi_SCH_3b_1p2_reduced.pdf and
++	 * the official GPU firmware DT blob.
++	 *
++	 * Legend:
++	 * "NC" = not connected (no rail from the SoC)
++	 * "FOO" = GPIO line named "FOO" on the schematic
++	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
++	 */
++	gpio-line-names = "ID_SDA",
++			  "ID_SCL",
++			  "SDA1",
++			  "SCL1",
++			  "GPIO_GCLK",
++			  "GPIO5",
++			  "GPIO6",
++			  "SPI_CE1_N",
++			  "SPI_CE0_N",
++			  "SPI_MISO",
++			  "SPI_MOSI",
++			  "SPI_SCLK",
++			  "GPIO12",
++			  "GPIO13",
++			  /* Serial port */
++			  "TXD1",
++			  "RXD1",
++			  "GPIO16",
++			  "GPIO17",
++			  "GPIO18",
++			  "GPIO19",
++			  "GPIO20",
++			  "GPIO21",
++			  "GPIO22",
++			  "GPIO23",
++			  "GPIO24",
++			  "GPIO25",
++			  "GPIO26",
++			  "GPIO27",
++			  "", /* GPIO 28 */
++			  "LAN_RUN_BOOT",
++			  /* Used by BT module */
++			  "CTS0",
++			  "RTS0",
++			  "TXD0",
++			  "RXD0",
++			  /* Used by Wifi */
++			  "SD1_CLK",
++			  "SD1_CMD",
++			  "SD1_DATA0",
++			  "SD1_DATA1",
++			  "SD1_DATA2",
++			  "SD1_DATA3",
++			  "PWM0_OUT",
++			  "PWM1_OUT",
++			  "ETHCLK",
++			  "WIFI_CLK",
++			  "SDA0",
++			  "SCL0",
++			  "SMPS_SCL",
++			  "SMPS_SDA",
++			  /* Used by SD Card */
++			  "SD_CLK_R",
++			  "SD_CMD_R",
++			  "SD_DATA0_R",
++			  "SD_DATA1_R",
++			  "SD_DATA2_R",
++			  "SD_DATA3_R";
++};
++
++&pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
++	status = "okay";
++};
++
++&hdmi {
++	hpd-gpios = <&expgpio 4 GPIO_ACTIVE_LOW>;
++};
++
++/* uart0 communicates with the BT module */
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_gpio32 &gpclk2_gpio43>;
++	status = "okay";
++
++	bluetooth {
++		compatible = "brcm,bcm43438-bt";
++		max-speed = <2000000>;
++		shutdown-gpios = <&expgpio 0 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++/* uart1 is mapped to the pin header */
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_gpio14>;
++	status = "okay";
++};
++
++/* SDHCI is used to control the SDIO for wireless */
++&sdhci {
++	#address-cells = <1>;
++	#size-cells = <0>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&emmc_gpio34>;
++	status = "okay";
++	bus-width = <4>;
++	non-removable;
++	mmc-pwrseq = <&wifi_pwrseq>;
++
++	brcmf: wifi@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++	};
++};
++
++/* SDHOST is used to drive the SD card */
++&sdhost {
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdhost_gpio48>;
++	status = "okay";
++	bus-width = <4>;
++};
+diff -Nur a/arch/arm/dts/bcm2710-rpi-3-b-plus.dts b/arch/arm/dts/bcm2710-rpi-3-b-plus.dts
+--- a/arch/arm/dts/bcm2710-rpi-3-b-plus.dts	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/dts/bcm2710-rpi-3-b-plus.dts	2019-11-07 15:17:43.531402590 +0200
+@@ -0,0 +1,178 @@
++// SPDX-License-Identifier: GPL-2.0
++/dts-v1/;
++#include "bcm2710.dtsi"
++#include "bcm2836-rpi.dtsi"
++#include "bcm283x-rpi-lan7515.dtsi"
++#include "bcm283x-rpi-usb-host.dtsi"
++
++/ {
++	compatible = "raspberrypi,3-model-b-plus", "brcm,bcm2710";
++	model = "Raspberry Pi 3 Model B+";
++
++	chosen {
++		/* 8250 auxiliary UART instead of pl011 */
++		stdout-path = "serial1:115200n8";
++	};
++
++	memory@0 {
++		reg = <0 0x40000000>;
++	};
++
++	leds {
++		act {
++			gpios = <&gpio 29 GPIO_ACTIVE_HIGH>;
++		};
++
++		pwr {
++			label = "PWR";
++			gpios = <&expgpio 2 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	wifi_pwrseq: wifi-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
++	};
++};
++
++&firmware {
++	expgpio: gpio {
++		compatible = "raspberrypi,firmware-gpio";
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-line-names = "BT_ON",
++				  "WL_ON",
++				  "STATUS_LED_R",
++				  "LAN_RUN",
++				  "",
++				  "CAM_GPIO0",
++				  "CAM_GPIO1",
++				  "";
++		status = "okay";
++	};
++};
++
++&gpio {
++	/*
++	 * Taken from rpi_SCH_3bplus_1p0_reduced.pdf and
++	 * the official GPU firmware DT blob.
++	 *
++	 * Legend:
++	 * "NC" = not connected (no rail from the SoC)
++	 * "FOO" = GPIO line named "FOO" on the schematic
++	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
++	 */
++	gpio-line-names = "ID_SDA",
++			  "ID_SCL",
++			  "SDA1",
++			  "SCL1",
++			  "GPIO_GCLK",
++			  "GPIO5",
++			  "GPIO6",
++			  "SPI_CE1_N",
++			  "SPI_CE0_N",
++			  "SPI_MISO",
++			  "SPI_MOSI",
++			  "SPI_SCLK",
++			  "GPIO12",
++			  "GPIO13",
++			  /* Serial port */
++			  "TXD1",
++			  "RXD1",
++			  "GPIO16",
++			  "GPIO17",
++			  "GPIO18",
++			  "GPIO19",
++			  "GPIO20",
++			  "GPIO21",
++			  "GPIO22",
++			  "GPIO23",
++			  "GPIO24",
++			  "GPIO25",
++			  "GPIO26",
++			  "GPIO27",
++			  "HDMI_HPD_N",
++			  "STATUS_LED_G",
++			  /* Used by BT module */
++			  "CTS0",
++			  "RTS0",
++			  "TXD0",
++			  "RXD0",
++			  /* Used by Wifi */
++			  "SD1_CLK",
++			  "SD1_CMD",
++			  "SD1_DATA0",
++			  "SD1_DATA1",
++			  "SD1_DATA2",
++			  "SD1_DATA3",
++			  "PWM0_OUT",
++			  "PWM1_OUT",
++			  "ETHCLK",
++			  "WIFI_CLK",
++			  "SDA0",
++			  "SCL0",
++			  "SMPS_SCL",
++			  "SMPS_SDA",
++			  /* Used by SD Card */
++			  "SD_CLK_R",
++			  "SD_CMD_R",
++			  "SD_DATA0_R",
++			  "SD_DATA1_R",
++			  "SD_DATA2_R",
++			  "SD_DATA3_R";
++};
++
++&hdmi {
++	hpd-gpios = <&gpio 28 GPIO_ACTIVE_LOW>;
++};
++
++&pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
++	status = "okay";
++};
++
++/* SDHCI is used to control the SDIO for wireless */
++&sdhci {
++	#address-cells = <1>;
++	#size-cells = <0>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&emmc_gpio34>;
++	status = "okay";
++	bus-width = <4>;
++	non-removable;
++	mmc-pwrseq = <&wifi_pwrseq>;
++
++	brcmf: wifi@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++	};
++};
++
++/* SDHOST is used to drive the SD card */
++&sdhost {
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdhost_gpio48>;
++	status = "okay";
++	bus-width = <4>;
++};
++
++/* uart0 communicates with the BT module */
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ctsrts_gpio30 &uart0_gpio32 &gpclk2_gpio43>;
++	status = "okay";
++
++	bluetooth {
++		compatible = "brcm,bcm43438-bt";
++		max-speed = <2000000>;
++		shutdown-gpios = <&expgpio 0 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++/* uart1 is mapped to the pin header */
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_gpio14>;
++	status = "okay";
++};
+diff -Nur a/arch/arm/dts/bcm2710-rpi-cm3.dtsi b/arch/arm/dts/bcm2710-rpi-cm3.dtsi
+--- a/arch/arm/dts/bcm2710-rpi-cm3.dtsi	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/dts/bcm2710-rpi-cm3.dtsi	2019-11-07 15:17:43.527402599 +0200
+@@ -0,0 +1,52 @@
++// SPDX-License-Identifier: GPL-2.0
++/dts-v1/;
++#include "bcm2710.dtsi"
++#include "bcm2836-rpi.dtsi"
++
++/ {
++	memory@0 {
++		reg = <0 0x40000000>;
++	};
++
++	reg_3v3: fixed-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "3V3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-always-on;
++	};
++
++	reg_1v8: fixed-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "1V8";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++	};
++};
++
++&firmware {
++	expgpio: gpio {
++		compatible = "raspberrypi,firmware-gpio";
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-line-names = "HDMI_HPD_N",
++				  "EMMC_EN_N",
++				  "NC",
++				  "NC",
++				  "NC",
++				  "NC",
++				  "NC",
++				  "NC";
++		status = "okay";
++	};
++};
++
++&sdhost {
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdhost_gpio48>;
++	bus-width = <4>;
++	vmmc-supply = <&reg_3v3>;
++	vqmmc-supply = <&reg_1v8>;
++	status = "okay";
++};
+diff -Nur a/arch/arm/dts/bcm2710-rpi-cm3-io3.dts b/arch/arm/dts/bcm2710-rpi-cm3-io3.dts
+--- a/arch/arm/dts/bcm2710-rpi-cm3-io3.dts	1970-01-01 02:00:00.000000000 +0200
++++ b/arch/arm/dts/bcm2710-rpi-cm3-io3.dts	2019-11-07 15:17:43.531402590 +0200
+@@ -0,0 +1,87 @@
++// SPDX-License-Identifier: GPL-2.0
++/dts-v1/;
++#include "bcm2710-rpi-cm3.dtsi"
++#include "bcm283x-rpi-usb-host.dtsi"
++
++/ {
++	compatible = "raspberrypi,3-compute-module", "brcm,bcm2710";
++	model = "Raspberry Pi Compute Module 3 IO board V3.0";
++};
++
++&gpio {
++	/*
++	 * This is based on the official GPU firmware DT blob.
++	 *
++	 * Legend:
++	 * "NC" = not connected (no rail from the SoC)
++	 * "FOO" = GPIO line named "FOO" on the schematic
++	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
++	 */
++	gpio-line-names = "GPIO0",
++			  "GPIO1",
++			  "GPIO2",
++			  "GPIO3",
++			  "GPIO4",
++			  "GPIO5",
++			  "GPIO6",
++			  "GPIO7",
++			  "GPIO8",
++			  "GPIO9",
++			  "GPIO10",
++			  "GPIO11",
++			  "GPIO12",
++			  "GPIO13",
++			  "GPIO14",
++			  "GPIO15",
++			  "GPIO16",
++			  "GPIO17",
++			  "GPIO18",
++			  "GPIO19",
++			  "GPIO20",
++			  "GPIO21",
++			  "GPIO22",
++			  "GPIO23",
++			  "GPIO24",
++			  "GPIO25",
++			  "GPIO26",
++			  "GPIO27",
++			  "GPIO28",
++			  "GPIO29",
++			  "GPIO30",
++			  "GPIO31",
++			  "GPIO32",
++			  "GPIO33",
++			  "GPIO34",
++			  "GPIO35",
++			  "GPIO36",
++			  "GPIO37",
++			  "GPIO38",
++			  "GPIO39",
++			  "GPIO40",
++			  "GPIO41",
++			  "GPIO42",
++			  "GPIO43",
++			  "GPIO44",
++			  "GPIO45",
++			  "GPIO46",
++			  "GPIO47",
++			  /* Used by eMMC */
++			  "SD_CLK_R",
++			  "SD_CMD_R",
++			  "SD_DATA0_R",
++			  "SD_DATA1_R",
++			  "SD_DATA2_R",
++			  "SD_DATA3_R";
++
++	pinctrl-0 = <&gpioout &alt0>;
++};
++
++&hdmi {
++	hpd-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_gpio14>;
++	status = "okay";
++};
+diff -Nur a/arch/arm/dts/bcm2837.dtsi b/arch/arm/dts/bcm2837.dtsi
+--- a/arch/arm/dts/bcm2837.dtsi	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/bcm2837.dtsi	1970-01-01 02:00:00.000000000 +0200
+@@ -1,93 +0,0 @@
+-#include "bcm283x.dtsi"
+-
+-/ {
+-	compatible = "brcm,bcm2837";
+-
+-	soc {
+-		ranges = <0x7e000000 0x3f000000 0x1000000>,
+-			 <0x40000000 0x40000000 0x00001000>;
+-		dma-ranges = <0xc0000000 0x00000000 0x3f000000>;
+-
+-		local_intc: local_intc@40000000 {
+-			compatible = "brcm,bcm2836-l1-intc";
+-			reg = <0x40000000 0x100>;
+-			interrupt-controller;
+-			#interrupt-cells = <2>;
+-			interrupt-parent = <&local_intc>;
+-		};
+-	};
+-
+-	arm-pmu {
+-		compatible = "arm,cortex-a53-pmu";
+-		interrupt-parent = <&local_intc>;
+-		interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+-	};
+-
+-	timer {
+-		compatible = "arm,armv7-timer";
+-		interrupt-parent = <&local_intc>;
+-		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>, // PHYS_SECURE_PPI
+-			     <1 IRQ_TYPE_LEVEL_HIGH>, // PHYS_NONSECURE_PPI
+-			     <3 IRQ_TYPE_LEVEL_HIGH>, // VIRT_PPI
+-			     <2 IRQ_TYPE_LEVEL_HIGH>; // HYP_PPI
+-		always-on;
+-	};
+-
+-	cpus: cpus {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		enable-method = "brcm,bcm2836-smp"; // for ARM 32-bit
+-
+-		cpu0: cpu@0 {
+-			device_type = "cpu";
+-			compatible = "arm,cortex-a53";
+-			reg = <0>;
+-			enable-method = "spin-table";
+-			cpu-release-addr = <0x0 0x000000d8>;
+-		};
+-
+-		cpu1: cpu@1 {
+-			device_type = "cpu";
+-			compatible = "arm,cortex-a53";
+-			reg = <1>;
+-			enable-method = "spin-table";
+-			cpu-release-addr = <0x0 0x000000e0>;
+-		};
+-
+-		cpu2: cpu@2 {
+-			device_type = "cpu";
+-			compatible = "arm,cortex-a53";
+-			reg = <2>;
+-			enable-method = "spin-table";
+-			cpu-release-addr = <0x0 0x000000e8>;
+-		};
+-
+-		cpu3: cpu@3 {
+-			device_type = "cpu";
+-			compatible = "arm,cortex-a53";
+-			reg = <3>;
+-			enable-method = "spin-table";
+-			cpu-release-addr = <0x0 0x000000f0>;
+-		};
+-	};
+-};
+-
+-/* Make the BCM2835-style global interrupt controller be a child of the
+- * CPU-local interrupt controller.
+- */
+-&intc {
+-	compatible = "brcm,bcm2836-armctrl-ic";
+-	reg = <0x7e00b200 0x200>;
+-	interrupt-parent = <&local_intc>;
+-	interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+-};
+-
+-&cpu_thermal {
+-	coefficients = <(-538)	412000>;
+-};
+-
+-/* enable thermal sensor with the correct compatible property set */
+-&thermal {
+-	compatible = "brcm,bcm2837-thermal";
+-	status = "okay";
+-};
+diff -Nur a/arch/arm/dts/bcm2837-rpi-3-a-plus.dts b/arch/arm/dts/bcm2837-rpi-3-a-plus.dts
+--- a/arch/arm/dts/bcm2837-rpi-3-a-plus.dts	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/bcm2837-rpi-3-a-plus.dts	1970-01-01 02:00:00.000000000 +0200
+@@ -1,175 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/dts-v1/;
+-#include "bcm2837.dtsi"
+-#include "bcm2836-rpi.dtsi"
+-#include "bcm283x-rpi-usb-host.dtsi"
+-
+-/ {
+-	compatible = "raspberrypi,3-model-a-plus", "brcm,bcm2837";
+-	model = "Raspberry Pi 3 Model A+";
+-
+-	chosen {
+-		/* 8250 auxiliary UART instead of pl011 */
+-		stdout-path = "serial1:115200n8";
+-	};
+-
+-	memory@0 {
+-		reg = <0 0x20000000>;
+-	};
+-
+-	leds {
+-		act {
+-			gpios = <&gpio 29 GPIO_ACTIVE_HIGH>;
+-		};
+-
+-		pwr {
+-			label = "PWR";
+-			gpios = <&expgpio 2 GPIO_ACTIVE_LOW>;
+-		};
+-	};
+-};
+-
+-&firmware {
+-	expgpio: gpio {
+-		compatible = "raspberrypi,firmware-gpio";
+-		gpio-controller;
+-		#gpio-cells = <2>;
+-		gpio-line-names = "",
+-				  "BT_WL_ON",
+-				  "STATUS_LED_R",
+-				  "",
+-				  "",
+-				  "CAM_GPIO0",
+-				  "CAM_GPIO1",
+-				  "";
+-		status = "okay";
+-	};
+-};
+-
+-&gpio {
+-	/*
+-	 * This is mostly based on the official GPU firmware DT blob.
+-	 *
+-	 * Legend:
+-	 * "NC" = not connected (no rail from the SoC)
+-	 * "FOO" = GPIO line named "FOO" on the schematic
+-	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
+-	 */
+-	gpio-line-names = "ID_SDA",
+-			  "ID_SCL",
+-			  "SDA1",
+-			  "SCL1",
+-			  "GPIO_GCLK",
+-			  "GPIO5",
+-			  "GPIO6",
+-			  "SPI_CE1_N",
+-			  "SPI_CE0_N",
+-			  "SPI_MISO",
+-			  "SPI_MOSI",
+-			  "SPI_SCLK",
+-			  "GPIO12",
+-			  "GPIO13",
+-			  /* Serial port */
+-			  "TXD1",
+-			  "RXD1",
+-			  "GPIO16",
+-			  "GPIO17",
+-			  "GPIO18",
+-			  "GPIO19",
+-			  "GPIO20",
+-			  "GPIO21",
+-			  "GPIO22",
+-			  "GPIO23",
+-			  "GPIO24",
+-			  "GPIO25",
+-			  "GPIO26",
+-			  "GPIO27",
+-			  "HDMI_HPD_N",
+-			  "STATUS_LED_G",
+-			  /* Used by BT module */
+-			  "CTS0",
+-			  "RTS0",
+-			  "TXD0",
+-			  "RXD0",
+-			  /* Used by Wifi */
+-			  "SD1_CLK",
+-			  "SD1_CMD",
+-			  "SD1_DATA0",
+-			  "SD1_DATA1",
+-			  "SD1_DATA2",
+-			  "SD1_DATA3",
+-			  "PWM0_OUT",
+-			  "PWM1_OUT",
+-			  "", /* GPIO42 */
+-			  "WIFI_CLK",
+-			  "SDA0",
+-			  "SCL0",
+-			  "SMPS_SCL",
+-			  "SMPS_SDA",
+-			  /* Used by SD Card */
+-			  "SD_CLK_R",
+-			  "SD_CMD_R",
+-			  "SD_DATA0_R",
+-			  "SD_DATA1_R",
+-			  "SD_DATA2_R",
+-			  "SD_DATA3_R";
+-};
+-
+-&hdmi {
+-	hpd-gpios = <&gpio 28 GPIO_ACTIVE_LOW>;
+-};
+-
+-&pwm {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
+-	status = "okay";
+-};
+-
+-/*
+- * SDHCI is used to control the SDIO for wireless
+- *
+- * WL_REG_ON and BT_REG_ON of the CYW43455 Wifi/BT module are driven
+- * by a single GPIO. We can't give GPIO control to one of the drivers,
+- * otherwise the other part would get unexpectedly disturbed.
+- */
+-&sdhci {
+-	#address-cells = <1>;
+-	#size-cells = <0>;
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&emmc_gpio34>;
+-	status = "okay";
+-	bus-width = <4>;
+-	non-removable;
+-
+-	brcmf: wifi@1 {
+-		reg = <1>;
+-		compatible = "brcm,bcm4329-fmac";
+-	};
+-};
+-
+-/* SDHOST is used to drive the SD card */
+-&sdhost {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&sdhost_gpio48>;
+-	status = "okay";
+-	bus-width = <4>;
+-};
+-
+-/* uart0 communicates with the BT module */
+-&uart0 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart0_ctsrts_gpio30 &uart0_gpio32 &gpclk2_gpio43>;
+-	status = "okay";
+-
+-	bluetooth {
+-		compatible = "brcm,bcm43438-bt";
+-		max-speed = <2000000>;
+-	};
+-};
+-
+-/* uart1 is mapped to the pin header */
+-&uart1 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart1_gpio14>;
+-	status = "okay";
+-};
+diff -Nur a/arch/arm/dts/bcm2837-rpi-3-b.dts b/arch/arm/dts/bcm2837-rpi-3-b.dts
+--- a/arch/arm/dts/bcm2837-rpi-3-b.dts	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/bcm2837-rpi-3-b.dts	1970-01-01 02:00:00.000000000 +0200
+@@ -1,173 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/dts-v1/;
+-#include "bcm2837.dtsi"
+-#include "bcm2836-rpi.dtsi"
+-#include "bcm283x-rpi-smsc9514.dtsi"
+-#include "bcm283x-rpi-usb-host.dtsi"
+-
+-/ {
+-	compatible = "raspberrypi,3-model-b", "brcm,bcm2837";
+-	model = "Raspberry Pi 3 Model B";
+-
+-	chosen {
+-		/* 8250 auxiliary UART instead of pl011 */
+-		stdout-path = "serial1:115200n8";
+-	};
+-
+-	memory@0 {
+-		reg = <0 0x40000000>;
+-	};
+-
+-	leds {
+-		act {
+-			gpios = <&expgpio 2 GPIO_ACTIVE_HIGH>;
+-		};
+-	};
+-
+-	wifi_pwrseq: wifi-pwrseq {
+-		compatible = "mmc-pwrseq-simple";
+-		reset-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
+-	};
+-};
+-
+-&firmware {
+-	expgpio: gpio {
+-		compatible = "raspberrypi,firmware-gpio";
+-		gpio-controller;
+-		#gpio-cells = <2>;
+-		gpio-line-names = "BT_ON",
+-				  "WL_ON",
+-				  "STATUS_LED",
+-				  "LAN_RUN",
+-				  "HDMI_HPD_N",
+-				  "CAM_GPIO0",
+-				  "CAM_GPIO1",
+-				  "PWR_LOW_N";
+-		status = "okay";
+-	};
+-};
+-
+-&gpio {
+-	/*
+-	 * Taken from rpi_SCH_3b_1p2_reduced.pdf and
+-	 * the official GPU firmware DT blob.
+-	 *
+-	 * Legend:
+-	 * "NC" = not connected (no rail from the SoC)
+-	 * "FOO" = GPIO line named "FOO" on the schematic
+-	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
+-	 */
+-	gpio-line-names = "ID_SDA",
+-			  "ID_SCL",
+-			  "SDA1",
+-			  "SCL1",
+-			  "GPIO_GCLK",
+-			  "GPIO5",
+-			  "GPIO6",
+-			  "SPI_CE1_N",
+-			  "SPI_CE0_N",
+-			  "SPI_MISO",
+-			  "SPI_MOSI",
+-			  "SPI_SCLK",
+-			  "GPIO12",
+-			  "GPIO13",
+-			  /* Serial port */
+-			  "TXD1",
+-			  "RXD1",
+-			  "GPIO16",
+-			  "GPIO17",
+-			  "GPIO18",
+-			  "GPIO19",
+-			  "GPIO20",
+-			  "GPIO21",
+-			  "GPIO22",
+-			  "GPIO23",
+-			  "GPIO24",
+-			  "GPIO25",
+-			  "GPIO26",
+-			  "GPIO27",
+-			  "", /* GPIO 28 */
+-			  "LAN_RUN_BOOT",
+-			  /* Used by BT module */
+-			  "CTS0",
+-			  "RTS0",
+-			  "TXD0",
+-			  "RXD0",
+-			  /* Used by Wifi */
+-			  "SD1_CLK",
+-			  "SD1_CMD",
+-			  "SD1_DATA0",
+-			  "SD1_DATA1",
+-			  "SD1_DATA2",
+-			  "SD1_DATA3",
+-			  "PWM0_OUT",
+-			  "PWM1_OUT",
+-			  "ETHCLK",
+-			  "WIFI_CLK",
+-			  "SDA0",
+-			  "SCL0",
+-			  "SMPS_SCL",
+-			  "SMPS_SDA",
+-			  /* Used by SD Card */
+-			  "SD_CLK_R",
+-			  "SD_CMD_R",
+-			  "SD_DATA0_R",
+-			  "SD_DATA1_R",
+-			  "SD_DATA2_R",
+-			  "SD_DATA3_R";
+-};
+-
+-&pwm {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
+-	status = "okay";
+-};
+-
+-&hdmi {
+-	hpd-gpios = <&expgpio 4 GPIO_ACTIVE_LOW>;
+-};
+-
+-/* uart0 communicates with the BT module */
+-&uart0 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart0_gpio32 &gpclk2_gpio43>;
+-	status = "okay";
+-
+-	bluetooth {
+-		compatible = "brcm,bcm43438-bt";
+-		max-speed = <2000000>;
+-		shutdown-gpios = <&expgpio 0 GPIO_ACTIVE_HIGH>;
+-	};
+-};
+-
+-/* uart1 is mapped to the pin header */
+-&uart1 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart1_gpio14>;
+-	status = "okay";
+-};
+-
+-/* SDHCI is used to control the SDIO for wireless */
+-&sdhci {
+-	#address-cells = <1>;
+-	#size-cells = <0>;
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&emmc_gpio34>;
+-	status = "okay";
+-	bus-width = <4>;
+-	non-removable;
+-	mmc-pwrseq = <&wifi_pwrseq>;
+-
+-	brcmf: wifi@1 {
+-		reg = <1>;
+-		compatible = "brcm,bcm4329-fmac";
+-	};
+-};
+-
+-/* SDHOST is used to drive the SD card */
+-&sdhost {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&sdhost_gpio48>;
+-	status = "okay";
+-	bus-width = <4>;
+-};
+diff -Nur a/arch/arm/dts/bcm2837-rpi-3-b-plus.dts b/arch/arm/dts/bcm2837-rpi-3-b-plus.dts
+--- a/arch/arm/dts/bcm2837-rpi-3-b-plus.dts	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/bcm2837-rpi-3-b-plus.dts	1970-01-01 02:00:00.000000000 +0200
+@@ -1,178 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/dts-v1/;
+-#include "bcm2837.dtsi"
+-#include "bcm2836-rpi.dtsi"
+-#include "bcm283x-rpi-lan7515.dtsi"
+-#include "bcm283x-rpi-usb-host.dtsi"
+-
+-/ {
+-	compatible = "raspberrypi,3-model-b-plus", "brcm,bcm2837";
+-	model = "Raspberry Pi 3 Model B+";
+-
+-	chosen {
+-		/* 8250 auxiliary UART instead of pl011 */
+-		stdout-path = "serial1:115200n8";
+-	};
+-
+-	memory@0 {
+-		reg = <0 0x40000000>;
+-	};
+-
+-	leds {
+-		act {
+-			gpios = <&gpio 29 GPIO_ACTIVE_HIGH>;
+-		};
+-
+-		pwr {
+-			label = "PWR";
+-			gpios = <&expgpio 2 GPIO_ACTIVE_LOW>;
+-		};
+-	};
+-
+-	wifi_pwrseq: wifi-pwrseq {
+-		compatible = "mmc-pwrseq-simple";
+-		reset-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
+-	};
+-};
+-
+-&firmware {
+-	expgpio: gpio {
+-		compatible = "raspberrypi,firmware-gpio";
+-		gpio-controller;
+-		#gpio-cells = <2>;
+-		gpio-line-names = "BT_ON",
+-				  "WL_ON",
+-				  "STATUS_LED_R",
+-				  "LAN_RUN",
+-				  "",
+-				  "CAM_GPIO0",
+-				  "CAM_GPIO1",
+-				  "";
+-		status = "okay";
+-	};
+-};
+-
+-&gpio {
+-	/*
+-	 * Taken from rpi_SCH_3bplus_1p0_reduced.pdf and
+-	 * the official GPU firmware DT blob.
+-	 *
+-	 * Legend:
+-	 * "NC" = not connected (no rail from the SoC)
+-	 * "FOO" = GPIO line named "FOO" on the schematic
+-	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
+-	 */
+-	gpio-line-names = "ID_SDA",
+-			  "ID_SCL",
+-			  "SDA1",
+-			  "SCL1",
+-			  "GPIO_GCLK",
+-			  "GPIO5",
+-			  "GPIO6",
+-			  "SPI_CE1_N",
+-			  "SPI_CE0_N",
+-			  "SPI_MISO",
+-			  "SPI_MOSI",
+-			  "SPI_SCLK",
+-			  "GPIO12",
+-			  "GPIO13",
+-			  /* Serial port */
+-			  "TXD1",
+-			  "RXD1",
+-			  "GPIO16",
+-			  "GPIO17",
+-			  "GPIO18",
+-			  "GPIO19",
+-			  "GPIO20",
+-			  "GPIO21",
+-			  "GPIO22",
+-			  "GPIO23",
+-			  "GPIO24",
+-			  "GPIO25",
+-			  "GPIO26",
+-			  "GPIO27",
+-			  "HDMI_HPD_N",
+-			  "STATUS_LED_G",
+-			  /* Used by BT module */
+-			  "CTS0",
+-			  "RTS0",
+-			  "TXD0",
+-			  "RXD0",
+-			  /* Used by Wifi */
+-			  "SD1_CLK",
+-			  "SD1_CMD",
+-			  "SD1_DATA0",
+-			  "SD1_DATA1",
+-			  "SD1_DATA2",
+-			  "SD1_DATA3",
+-			  "PWM0_OUT",
+-			  "PWM1_OUT",
+-			  "ETHCLK",
+-			  "WIFI_CLK",
+-			  "SDA0",
+-			  "SCL0",
+-			  "SMPS_SCL",
+-			  "SMPS_SDA",
+-			  /* Used by SD Card */
+-			  "SD_CLK_R",
+-			  "SD_CMD_R",
+-			  "SD_DATA0_R",
+-			  "SD_DATA1_R",
+-			  "SD_DATA2_R",
+-			  "SD_DATA3_R";
+-};
+-
+-&hdmi {
+-	hpd-gpios = <&gpio 28 GPIO_ACTIVE_LOW>;
+-};
+-
+-&pwm {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
+-	status = "okay";
+-};
+-
+-/* SDHCI is used to control the SDIO for wireless */
+-&sdhci {
+-	#address-cells = <1>;
+-	#size-cells = <0>;
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&emmc_gpio34>;
+-	status = "okay";
+-	bus-width = <4>;
+-	non-removable;
+-	mmc-pwrseq = <&wifi_pwrseq>;
+-
+-	brcmf: wifi@1 {
+-		reg = <1>;
+-		compatible = "brcm,bcm4329-fmac";
+-	};
+-};
+-
+-/* SDHOST is used to drive the SD card */
+-&sdhost {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&sdhost_gpio48>;
+-	status = "okay";
+-	bus-width = <4>;
+-};
+-
+-/* uart0 communicates with the BT module */
+-&uart0 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart0_ctsrts_gpio30 &uart0_gpio32 &gpclk2_gpio43>;
+-	status = "okay";
+-
+-	bluetooth {
+-		compatible = "brcm,bcm43438-bt";
+-		max-speed = <2000000>;
+-		shutdown-gpios = <&expgpio 0 GPIO_ACTIVE_HIGH>;
+-	};
+-};
+-
+-/* uart1 is mapped to the pin header */
+-&uart1 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart1_gpio14>;
+-	status = "okay";
+-};
+diff -Nur a/arch/arm/dts/bcm2837-rpi-cm3.dtsi b/arch/arm/dts/bcm2837-rpi-cm3.dtsi
+--- a/arch/arm/dts/bcm2837-rpi-cm3.dtsi	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/bcm2837-rpi-cm3.dtsi	1970-01-01 02:00:00.000000000 +0200
+@@ -1,52 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/dts-v1/;
+-#include "bcm2837.dtsi"
+-#include "bcm2836-rpi.dtsi"
+-
+-/ {
+-	memory@0 {
+-		reg = <0 0x40000000>;
+-	};
+-
+-	reg_3v3: fixed-regulator {
+-		compatible = "regulator-fixed";
+-		regulator-name = "3V3";
+-		regulator-min-microvolt = <3300000>;
+-		regulator-max-microvolt = <3300000>;
+-		regulator-always-on;
+-	};
+-
+-	reg_1v8: fixed-regulator {
+-		compatible = "regulator-fixed";
+-		regulator-name = "1V8";
+-		regulator-min-microvolt = <1800000>;
+-		regulator-max-microvolt = <1800000>;
+-		regulator-always-on;
+-	};
+-};
+-
+-&firmware {
+-	expgpio: gpio {
+-		compatible = "raspberrypi,firmware-gpio";
+-		gpio-controller;
+-		#gpio-cells = <2>;
+-		gpio-line-names = "HDMI_HPD_N",
+-				  "EMMC_EN_N",
+-				  "NC",
+-				  "NC",
+-				  "NC",
+-				  "NC",
+-				  "NC",
+-				  "NC";
+-		status = "okay";
+-	};
+-};
+-
+-&sdhost {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&sdhost_gpio48>;
+-	bus-width = <4>;
+-	vmmc-supply = <&reg_3v3>;
+-	vqmmc-supply = <&reg_1v8>;
+-	status = "okay";
+-};
+diff -Nur a/arch/arm/dts/bcm2837-rpi-cm3-io3.dts b/arch/arm/dts/bcm2837-rpi-cm3-io3.dts
+--- a/arch/arm/dts/bcm2837-rpi-cm3-io3.dts	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/bcm2837-rpi-cm3-io3.dts	1970-01-01 02:00:00.000000000 +0200
+@@ -1,87 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/dts-v1/;
+-#include "bcm2837-rpi-cm3.dtsi"
+-#include "bcm283x-rpi-usb-host.dtsi"
+-
+-/ {
+-	compatible = "raspberrypi,3-compute-module", "brcm,bcm2837";
+-	model = "Raspberry Pi Compute Module 3 IO board V3.0";
+-};
+-
+-&gpio {
+-	/*
+-	 * This is based on the official GPU firmware DT blob.
+-	 *
+-	 * Legend:
+-	 * "NC" = not connected (no rail from the SoC)
+-	 * "FOO" = GPIO line named "FOO" on the schematic
+-	 * "FOO_N" = GPIO line named "FOO" on schematic, active low
+-	 */
+-	gpio-line-names = "GPIO0",
+-			  "GPIO1",
+-			  "GPIO2",
+-			  "GPIO3",
+-			  "GPIO4",
+-			  "GPIO5",
+-			  "GPIO6",
+-			  "GPIO7",
+-			  "GPIO8",
+-			  "GPIO9",
+-			  "GPIO10",
+-			  "GPIO11",
+-			  "GPIO12",
+-			  "GPIO13",
+-			  "GPIO14",
+-			  "GPIO15",
+-			  "GPIO16",
+-			  "GPIO17",
+-			  "GPIO18",
+-			  "GPIO19",
+-			  "GPIO20",
+-			  "GPIO21",
+-			  "GPIO22",
+-			  "GPIO23",
+-			  "GPIO24",
+-			  "GPIO25",
+-			  "GPIO26",
+-			  "GPIO27",
+-			  "GPIO28",
+-			  "GPIO29",
+-			  "GPIO30",
+-			  "GPIO31",
+-			  "GPIO32",
+-			  "GPIO33",
+-			  "GPIO34",
+-			  "GPIO35",
+-			  "GPIO36",
+-			  "GPIO37",
+-			  "GPIO38",
+-			  "GPIO39",
+-			  "GPIO40",
+-			  "GPIO41",
+-			  "GPIO42",
+-			  "GPIO43",
+-			  "GPIO44",
+-			  "GPIO45",
+-			  "GPIO46",
+-			  "GPIO47",
+-			  /* Used by eMMC */
+-			  "SD_CLK_R",
+-			  "SD_CMD_R",
+-			  "SD_DATA0_R",
+-			  "SD_DATA1_R",
+-			  "SD_DATA2_R",
+-			  "SD_DATA3_R";
+-
+-	pinctrl-0 = <&gpioout &alt0>;
+-};
+-
+-&hdmi {
+-	hpd-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
+-};
+-
+-&uart0 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart0_gpio14>;
+-	status = "okay";
+-};
+diff -Nur a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+--- a/arch/arm/dts/Makefile	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/dts/Makefile	2019-11-07 15:17:43.527402599 +0200
+@@ -760,10 +760,10 @@
+ 	bcm2835-rpi-zero.dtb \
+ 	bcm2835-rpi-zero-w.dtb\
+ 	bcm2836-rpi-2-b.dtb \
+-	bcm2837-rpi-3-a-plus.dtb \
+-	bcm2837-rpi-3-b.dtb \
+-	bcm2837-rpi-3-b-plus.dtb \
+-	bcm2837-rpi-cm3-io3.dtb
++	bcm2710-rpi-3-a-plus.dtb \
++	bcm2710-rpi-3-b.dtb \
++	bcm2710-rpi-3-b-plus.dtb \
++	bcm2710-rpi-cm3-io3.dtb
+ 
+ dtb-$(CONFIG_ARCH_BCM63158) += \
+ 	bcm963158.dtb
+diff -Nur a/arch/arm/mach-bcm283x/Kconfig b/arch/arm/mach-bcm283x/Kconfig
+--- a/arch/arm/mach-bcm283x/Kconfig	2019-10-08 00:14:02.000000000 +0300
++++ b/arch/arm/mach-bcm283x/Kconfig	2019-11-07 15:17:43.527402599 +0200
+@@ -9,21 +9,21 @@
+ 	select ARMV7_LPAE
+ 	select CPU_V7A
+ 
+-config BCM2837
+-	bool "Broadcom BCM2837 SoC support"
++config bcm2710
++	bool "Broadcom bcm2710 SoC support"
+ 	depends on ARCH_BCM283X
+ 
+-config BCM2837_32B
+-	bool "Broadcom BCM2837 SoC 32-bit support"
++config bcm2710_32B
++	bool "Broadcom bcm2710 SoC 32-bit support"
+ 	depends on ARCH_BCM283X
+-	select BCM2837
++	select bcm2710
+ 	select ARMV7_LPAE
+ 	select CPU_V7A
+ 
+-config BCM2837_64B
+-	bool "Broadcom BCM2837 SoC 64-bit support"
++config bcm2710_64B
++	bool "Broadcom bcm2710 SoC 64-bit support"
+ 	depends on ARCH_BCM283X
+-	select BCM2837
++	select bcm2710
+ 	select ARM64
+ 
+ config BCM2711
+@@ -55,7 +55,7 @@
+ 	help
+ 	  Support for all ARM1176-/BCM2835-based Raspberry Pi variants, such as
+ 	  the A, A+, B, B+, Compute Module, and Zero. This option cannot
+-	  support BCM2836/BCM2837-based Raspberry Pis such as the RPi 2 and
++	  support BCM2836/bcm2710-based Raspberry Pis such as the RPi 2 and
+ 	  RPi 3 due to different peripheral address maps.
+ 
+ 	  This option creates a build targeting the ARM1176 ISA.
+@@ -83,7 +83,7 @@
+ 	  Support for all BCM2836-based Raspberry Pi variants, such as
+ 	  the RPi 2 model B.
+ 
+-	  This option also supports BCM2837-based variants such as the RPi 3
++	  This option also supports bcm2710-based variants such as the RPi 3
+ 	  Model B, when run in 32-bit mode, provided you have configured the
+ 	  VideoCore firmware to select the PL011 UART for the console by:
+ 	  a) config.txt should contain dtoverlay=pi3-miniuart-bt.
+@@ -103,7 +103,7 @@
+ config TARGET_RPI_3_32B
+ 	bool "Raspberry Pi 3 32-bit build"
+ 	help
+-	  Support for all BCM2837-based Raspberry Pi variants, such as
++	  Support for all bcm2710-based Raspberry Pi variants, such as
+ 	  the RPi 3 model B, in AArch32 (32-bit) mode.
+ 
+ 	  This option assumes the VideoCore firmware is configured to use the
+@@ -114,12 +114,12 @@
+ 	  about the HDMI/usbkbd console.
+ 
+ 	  This option creates a build targeting the ARMv7/AArch32 ISA.
+-	select BCM2837_32B
++	select bcm2710_32B
+ 
+ config TARGET_RPI_3
+ 	bool "Raspberry Pi 3 64-bit build"
+ 	help
+-	  Support for all BCM2837-based Raspberry Pi variants, such as
++	  Support for all bcm2710-based Raspberry Pi variants, such as
+ 	  the RPi 3 model B, in AArch64 (64-bit) mode.
+ 
+ 	  This option assumes the VideoCore firmware is configured to use the
+@@ -142,7 +142,7 @@
+ 	  https://github.com/raspberrypi/firmware/issues/579.
+ 
+ 	  This option creates a build targeting the ARMv8/AArch64 ISA.
+-	select BCM2837_64B
++	select bcm2710_64B
+ 
+ config TARGET_RPI_4_32B
+ 	bool "Raspberry Pi 4 32-bit build"
+@@ -205,7 +205,7 @@
+ config BCM283x_BASE
+ 	hex
+ 	default "0x20000000" if BCM2835
+-	default "0x3f000000" if BCM2836 || BCM2837
++	default "0x3f000000" if BCM2836 || bcm2710
+ 	default "0xfe000000" if BCM2711
+ 
+ endmenu
+diff -Nur a/board/raspberrypi/rpi/rpi.c b/board/raspberrypi/rpi/rpi.c
+--- a/board/raspberrypi/rpi/rpi.c	2019-10-08 00:14:02.000000000 +0300
++++ b/board/raspberrypi/rpi/rpi.c	2019-11-07 15:17:29.199438272 +0200
+@@ -115,7 +115,7 @@
+ 	},
+ 	[0x8] = {
+ 		"3 Model B",
+-		DTB_DIR "bcm2837-rpi-3-b.dtb",
++		DTB_DIR "bcm2710-rpi-3-b.dtb",
+ 		true,
+ 	},
+ 	[0x9] = {
+@@ -125,7 +125,7 @@
+ 	},
+ 	[0xA] = {
+ 		"Compute Module 3",
+-		DTB_DIR "bcm2837-rpi-cm3.dtb",
++		DTB_DIR "bcm2710-rpi-cm3.dtb",
+ 		false,
+ 	},
+ 	[0xC] = {
+@@ -135,17 +135,17 @@
+ 	},
+ 	[0xD] = {
+ 		"3 Model B+",
+-		DTB_DIR "bcm2837-rpi-3-b-plus.dtb",
++		DTB_DIR "bcm2710-rpi-3-b-plus.dtb",
+ 		true,
+ 	},
+ 	[0xE] = {
+ 		"3 Model A+",
+-		DTB_DIR "bcm2837-rpi-3-a-plus.dtb",
++		DTB_DIR "bcm2710-rpi-3-a-plus.dtb",
+ 		false,
+ 	},
+ 	[0x10] = {
+ 		"Compute Module 3+",
+-		DTB_DIR "bcm2837-rpi-cm3.dtb",
++		DTB_DIR "bcm2710-rpi-cm3.dtb",
+ 		false,
+ 	},
+ 	[0x11] = {
+diff -Nur a/configs/rpi_3_32b_defconfig b/configs/rpi_3_32b_defconfig
+--- a/configs/rpi_3_32b_defconfig	2019-10-08 00:14:02.000000000 +0300
++++ b/configs/rpi_3_32b_defconfig	2019-11-07 15:17:43.527402599 +0200
+@@ -19,7 +19,7 @@
+ CONFIG_CMD_USB=y
+ CONFIG_CMD_FS_UUID=y
+ CONFIG_OF_EMBED=y
+-CONFIG_DEFAULT_DEVICE_TREE="bcm2837-rpi-3-b"
++CONFIG_DEFAULT_DEVICE_TREE="bcm2710-rpi-3-b"
+ CONFIG_ENV_FAT_INTERFACE="mmc"
+ CONFIG_ENV_FAT_DEVICE_AND_PART="0:1"
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+diff -Nur a/configs/rpi_3_b_plus_defconfig b/configs/rpi_3_b_plus_defconfig
+--- a/configs/rpi_3_b_plus_defconfig	2019-10-08 00:14:02.000000000 +0300
++++ b/configs/rpi_3_b_plus_defconfig	2019-11-07 15:17:43.527402599 +0200
+@@ -19,7 +19,7 @@
+ CONFIG_CMD_USB=y
+ CONFIG_CMD_FS_UUID=y
+ CONFIG_OF_EMBED=y
+-CONFIG_DEFAULT_DEVICE_TREE="bcm2837-rpi-3-b-plus"
++CONFIG_DEFAULT_DEVICE_TREE="bcm2710-rpi-3-b-plus"
+ CONFIG_ENV_FAT_INTERFACE="mmc"
+ CONFIG_ENV_FAT_DEVICE_AND_PART="0:1"
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+diff -Nur a/configs/rpi_3_defconfig b/configs/rpi_3_defconfig
+--- a/configs/rpi_3_defconfig	2019-10-08 00:14:02.000000000 +0300
++++ b/configs/rpi_3_defconfig	2019-11-07 15:17:43.527402599 +0200
+@@ -19,7 +19,7 @@
+ CONFIG_CMD_USB=y
+ CONFIG_CMD_FS_UUID=y
+ CONFIG_OF_EMBED=y
+-CONFIG_DEFAULT_DEVICE_TREE="bcm2837-rpi-3-b"
++CONFIG_DEFAULT_DEVICE_TREE="bcm2710-rpi-3-b"
+ CONFIG_ENV_FAT_INTERFACE="mmc"
+ CONFIG_ENV_FAT_DEVICE_AND_PART="0:1"
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+diff -Nur a/drivers/crypto/fsl/rsa_caam.h b/drivers/crypto/fsl/rsa_caam.h
+--- a/drivers/crypto/fsl/rsa_caam.h	2019-10-08 00:14:02.000000000 +0300
++++ b/drivers/crypto/fsl/rsa_caam.h	2019-11-07 14:33:32.442083847 +0200
+@@ -1,27 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0+ */
+-/*
+- * Copyright 2014 Freescale Semiconductor, Inc.
+- */
+-
+-#ifndef __RSA_CAAM_H
+-#define __RSA_CAAM_H
+-
+-#include <common.h>
+-
+-/**
+- * struct pk_in_params - holder for input to PKHA block in CAAM
+- * These parameters are required to perform Modular Exponentiation
+- * using PKHA Block in CAAM
+- */
+-struct pk_in_params {
+-	const uint8_t *e;	/* public exponent as byte array */
+-	uint32_t e_siz;		/* size of e[] in number of bytes */
+-	const uint8_t *n;	/* modulus as byte array */
+-	uint32_t n_siz;		/* size of n[] in number of bytes */
+-	const uint8_t *a;		/* Signature as byte array */
+-	uint32_t a_siz;		/* size of a[] in number of bytes */
+-	uint8_t *b;		/* Result exp. modulus in number of bytes */
+-	uint32_t b_siz;		/* size of b[] in number of bytes */
+-};
+-
+-#endif
+diff -Nur a/include/configs/rpi.h b/include/configs/rpi.h
+--- a/include/configs/rpi.h	2019-10-08 00:14:02.000000000 +0300
++++ b/include/configs/rpi.h	2019-11-07 15:17:43.531402590 +0200
+@@ -30,7 +30,7 @@
+  * chose to use someone else's previously registered machine ID (3139, MX51_GGC)
+  * rather than obtaining a valid ID:-/
+  *
+- * For the bcm2837, hopefully a machine type is not needed, since everything
++ * For the bcm2710, hopefully a machine type is not needed, since everything
+  * is DT.
+  */
+ #ifdef CONFIG_BCM2835

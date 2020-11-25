@@ -1,0 +1,2 @@
+kernel=u-boot.bin
+enable_uart=1

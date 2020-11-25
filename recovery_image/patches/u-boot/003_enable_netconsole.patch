@@ -1,0 +1,11 @@
+--- a/configs/rpi_3_32b_defconfig	2020-04-27 12:37:45.177914370 +0300
++++ b/configs/rpi_3_32b_defconfig	2020-04-27 12:38:33.633632103 +0300
+@@ -44,4 +44,5 @@
+ CONFIG_CONSOLE_SCROLL_LINES=10
+ CONFIG_PHYS_TO_BUS=y
+ CONFIG_OF_LIBFDT_OVERLAY=y
+-CONFIG_CMD_TFTPPUT=y
+\ No newline at end of file
++CONFIG_CMD_TFTPPUT=y
++CONFIG_NETCONSOLE=y
+\ No newline at end of file
