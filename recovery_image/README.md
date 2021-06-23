@@ -2,6 +2,9 @@
 
 This README file contains instruction for building a Raspberry Pi Recovery Image.  
 
+Please clone this repository and run the commands in the insturctions  
+from the repository folder on your local host.  
+
 Each Raspberry Pi target is first flashed with a special image (*Recovery Image*) its SD-CARD.  
 This image contains 3 partitions (original Raspberry Pi image consists of only two partitions):  
 
@@ -18,7 +21,6 @@ This image contains 3 partitions (original Raspberry Pi image consists of only t
 The Second and Third partition are empty.  
 These partition are only place holders for the image the U-BOOT will flash.  
 
-You can find in the repository a pre-built recovery image and jump to the [Flashing](#flashing) section.  
 Please see the corresponding sections below for details.  
 
 * [Recovery Image](#recovery-image)
