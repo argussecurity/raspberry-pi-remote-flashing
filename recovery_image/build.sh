@@ -27,8 +27,8 @@ PATCHES_PATH="${SCRIPT_PATH}/patches"
 SCRIPTS_PATH="${SCRIPT_PATH}/scripts"
 
 ## Settings
-IMAGE_NANE="recovery.img"
-IMAGE_PATH="${SCRIPT_PATH}/${IMAGE_NANE}"
+IMAGE_NAME="recovery.img"
+IMAGE_PATH="${SCRIPT_PATH}/${IMAGE_NAME}"
 IMAGE_SIZE="10530816"       # kB (~10GB)
 TRUNCATE_IMAGE_AFTER="200M" #MB
 RPI_FIRMWARE_VER="1.20190925"
@@ -55,11 +55,6 @@ function parse_script_args() {
         rm -rf $(ls -1 -d ${SOURCES_PATH}/*/ 2>/dev/null)
         exit 0
     fi
-}
-
-function handle_dependencies() {
-    print_title "Installing dependencies.."
-    sudo apt-get install make bison flex kpartx u-boot-tools gcc-arm-linux-gnueabi coreutils -y
 }
 
 function get_sources() {
@@ -175,7 +170,7 @@ function truncating_image() {
 
 function compress_image() {
     print_title "Compressing recovery image.."
-    tar -cjvf recovery.tar.bz2 "${IMAGE_PATH}"
+    tar -cjvf "${BUILD_PATH}/recovery.tar.bz2" -C "${SCRIPT_PATH}" ${IMAGE_NAME}
 }
 
 function copy_artifacts() {
@@ -199,7 +194,6 @@ function print_footer() {
 print_header
 clean
 parse_script_args "${@}"
-handle_dependencies
 get_sources
 patch_sources
 build_sources

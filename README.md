@@ -13,6 +13,25 @@ This README file contains description about the Raspberry Pi Remote Flashing sys
 * [Raspberry Pi Server](server)  
 * [Flashing Script](scripts)  
 
+## Test
+
+```mermaid
+  sequenceDiagram
+      actor       User
+      participant Jenkins
+      participant RpiCtrl
+      participant RpiDUT
+      User->>User: Build uboot recovery image <br> from this repository
+      User->>RpiDUT: Flash uboot recovery image <br> (only necessary once)
+      User->>Jenkins: Update raspberry git
+      Jenkins->>Jenkins: build new SD image
+      Jenkins->>RpiCtrl: transfer new SD image <br> to Control Raspberry
+      RpiCtrl->>RpiDUT: Reset DUT
+      RpiDUT->>RpiCtrl: uboot issues BOOTP request
+      RpiCtrl->>RpiDUT: transfer SD image
+      RpiDUT->>RpiDUT: save SD image
+```
+
 ## General System Overview
 
 A system should consist one of Raspberry Pi Server, controlling at least one Raspberry Pi target.  

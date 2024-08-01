@@ -1,0 +1,11 @@
+services:
+  devcontainer:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    privileged: true
+    volumes:
+      - ..:/workdir:cached
+      - ../recovery_image:/srv/tftpd
+    network_mode: "host"
+    command: sleep infinity

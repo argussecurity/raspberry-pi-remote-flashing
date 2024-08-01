@@ -1,0 +1,4 @@
+recovery_image/build
+recovery_image/artifacts
+recovery_image/sources
+recovery_image/recovery.img
